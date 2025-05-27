@@ -26,21 +26,16 @@ typedef struct {
 
 int parse_header(char* path);
 
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <input_file_path>\n", argv[0]);
+        return 1;
+    }
 
-int main(void) {
-    const char* sound = "claps";
-    const char* channel = "stereo";
-    char f_16[64];
-    char f_32[64];
+    char* inputFilePath = argv[1];
+    int result = parse_header(inputFilePath);
 
-    sprintf(f_16, "inputs/%s_16_stereo.wav", sound, channel);
-    sprintf(f_32, "inputs/%s_32_mono.wav", sound, channel);
-
-    int a = parse_header(f_16);
-    printf("\n");
-    printf("\n");
-    int b = parse_header(f_32);
-
+    return result;
 }
 
 int parse_header(char* path) {
