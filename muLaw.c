@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 
-#pragma pack(push, 1)
+
 typedef struct {
     // Master RIFF chunk
     char chunkID[4];        // "RIFF"
@@ -21,10 +22,11 @@ typedef struct {
     uint32_t subchunk2Size; // Size of the data chunk
     // Data ...
 } WAVHeader;
-#pragma pack(pop)
 
 
-int parse_header(char* path);
+WAVHeader* parse_header(const char* path);
+void print_header(WAVHeader* header);
+
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -32,40 +34,60 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    char* inputFilePath = argv[1];
-    int result = parse_header(inputFilePath);
+    const char* input_path = argv[1];
 
-    return result;
+    WAVHeader* header_data = parse_header(input_path);
+
+    print_header(header_data);
+
+    free(header_data);
+    return 0;
 }
 
-int parse_header(char* path) {
+
+WAVHeader* parse_header(const char* path) {
+    WAVHeader* header_data = malloc(sizeof(WAVHeader));
+    if (header_data == NULL) {
+        perror("Error allocating memory for header data");
+        return NULL;
+    }
+
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
         perror("Error opening file");
-        return 1;
+        free(header_data); // Free allocated memory
+        return NULL;
     }
 
-    WAVHeader header;
-    if (fread(&header, sizeof(WAVHeader), 1, file) != 1) {
+    if (fread(header_data, sizeof(WAVHeader), 1, file) != 1) {
         perror("Error reading WAV header");
         fclose(file);
-        return 1;
+        free(header_data); // Free allocated memory
+        return NULL;
     }
 
-    printf("Chunk ID: %.4s\n", header.chunkID);
-    printf("Chunk Size: %u\n", header.chunkSize);
-    printf("Format: %.4s\n", header.format);
-    printf("Subchunk1 ID: %.4s\n", header.subchunk1ID);
-    printf("Subchunk1 Size: %u\n", header.subchunk1Size);
-    printf("Audio Format: %u\n", header.audioFormat);
-    printf("Number of Channels: %u\n", header.numChannels);
-    printf("Sample Rate: %u\n", header.sampleRate);
-    printf("Bits Per Second: %u\n", header.bytePerSec);
-    printf("Bytes Per Block: %u\n", header.bytePerBlock);
-    printf("Bits Per Sample: %u\n", header.bitsPerSample);
-    printf("Subchunk2 ID: %.4s\n", header.subchunk2ID);
-    printf("Subchunk2 Size: %u\n", header.subchunk2Size);
-
     fclose(file);
-    return 0;
+    return header_data;
+}
+
+
+void print_header(WAVHeader* header) {
+    if (header == NULL) {
+        fprintf(stderr, "Header data is NULL.\n");
+        return;
+    }
+
+    printf("Chunk ID: %.4s\n", header->chunkID);
+    printf("Chunk Size: %u\n", header->chunkSize);
+    printf("Format: %.4s\n", header->format);
+    printf("Subchunk1 ID: %.4s\n", header->subchunk1ID);
+    printf("Subchunk1 Size: %u\n", header->subchunk1Size);
+    printf("Audio Format: %u\n", header->audioFormat);
+    printf("Number of Channels: %u\n", header->numChannels);
+    printf("Sample Rate: %u Hz\n", header->sampleRate);
+    printf("Byte Rate: %u bytes/sec\n", header->bytePerSec);
+    printf("Block Align: %u bytes\n", header->bytePerBlock);
+    printf("Bits per Sample: %u bits\n", header->bitsPerSample);
+    printf("Subchunk2 ID: %.4s\n", header->subchunk2ID);
+    printf("Subchunk2 Size: %u bytes\n", header->subchunk2Size);
 }
