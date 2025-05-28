@@ -6,4 +6,4 @@ muLaw: muLaw.c
 
 .PHONY clean:
 clean:
-	-rm -rf *.o *.exe mts
+	-rm -rf *.o *.exe muLaw
