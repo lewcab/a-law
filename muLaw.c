@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define CHUNK_SIZE 512
+
 typedef struct {
     char     chunkID[4];     // "RIFF"
     uint32_t chunkSize;
@@ -149,9 +151,19 @@ int main(int argc, char *argv[]) {
 
     printWAVInfo(&wav);
 
-    for (int i = 0; i < wav.dataSubchunk.subchunk2Size / sizeof(uint16_t); i++) {
-        if (i < 100) {
-            printf("Sample %3d:  (%3d)\n", i, wav.dataSubchunk.data[i]);
+    int total_samples = wav.dataSubchunk.subchunk2Size / sizeof(uint16_t);
+    int num_chunks = (total_samples + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+
+    // Break down the audio into 512 chunks and find their amplitudes
+    for (int chunk_idx = 0; chunk_idx < num_chunks; chunk_idx++) {
+        int start = chunk_idx * CHUNK_SIZE;
+        int end = start + CHUNK_SIZE;
+        if (end > total_samples) end = total_samples;
+
+        printf("Chunk %d (%d samples):\n", chunk_idx, end - start);
+        for (int i = start; i < end; i++) {
+            printf("  Sample %5d: %6d\n", i, wav.dataSubchunk.data[i]);
         }
     }
 
