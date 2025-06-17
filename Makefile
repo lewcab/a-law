@@ -1,12 +1,12 @@
 .phony all:
-all: clean muLaw muLaw.s
+all: clean aLaw aLaw.s
 
-muLaw: muLaw.c
-	gcc -o muLaw muLaw.c
+aLaw: aLaw.c
+	gcc -o aLaw aLaw.c
 
-muLaw.s: muLaw.c
-	gcc -S muLaw.c
+aLaw.s: aLaw.c
+	gcc -S aLaw.c
 
 .PHONY clean:
 clean:
-	rm -rf *.o *.exe *.s muLaw
+	rm -rf *.o *.exe *.s aLaw

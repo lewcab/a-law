@@ -1,7 +1,7 @@
 # executables
 *.exe
 *.s
-muLaw
+aLaw
 
 # ide files
 .idea/
