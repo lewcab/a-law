@@ -131,11 +131,46 @@ void printWAVInfo(const WAVFile *wav) {
     printf("Duration: %.2f seconds\n", (float)wav->dataSubchunk.subchunk2Size / wav->fmtSubchunk.byteRate);
 }
 
+// Print a 16-bit value in signed 2's complement binary format
 void print_binary(uint16_t value) {
     for (int i = 15; i >= 0; i--) {
         printf("%d", (value >> i) & 1);
     }
-    printf("\n");
+}
+
+// Compress a 16-bit signed integer sample to 8-bit A-law format
+uint8_t a_law_compression(int16_t sample){
+    int sign, magnitude;
+
+    if (sample < 0) {
+        sign = 0;
+        sample = -sample; // Make it positive for processing
+    } else {
+        sign = 1;
+        magnitude = sample;
+    }
+
+    // Truncate the sample to 12 bits as per A-law compression
+    if (magnitude > 0xFFF) {
+        magnitude = 0xFFF; // Cap to maximum 12-bit value
+    }
+
+    // Find the MSB
+    int chord = 0;
+    for (int i = 11; i >= 5; i--) {
+        if (magnitude & (1 << i)) {
+            chord = i - 5;
+            break;
+        }
+    }
+
+    //  Extract 4 step bits after MSB
+    int step = (magnitude >> (chord + 1)) & 0xF;
+
+    // Assemble A-law codeword (sign 1-bit | chord 3-bits | step 4-bits)
+    uint8_t codeword = (sign << 7) | (chord << 4) | step;
+
+    return codeword;
 }
 
 int main(int argc, char *argv[]) {
@@ -163,7 +198,10 @@ int main(int argc, char *argv[]) {
 
         printf("Chunk %d (%d samples):\n", chunk_idx, end - start);
         for (int i = start; i < end; i++) {
-            printf("  Sample %5d: %6d\n", i, wav.dataSubchunk.data[i]);
+            int16_t sample = wav.dataSubchunk.data[i];
+            printf("Sample %3d: %6d (bin: ", i, sample);
+            print_binary(sample);
+            printf(")\n");
         }
     }
 
