@@ -132,8 +132,8 @@ void printWAVInfo(const WAVFile *wav) {
 }
 
 // Print a 16-bit value in signed 2's complement binary format
-void print_binary(uint16_t value) {
-    for (int i = 15; i >= 0; i--) {
+void print_binary(uint16_t value, int num_bits) {
+    for (int i = num_bits - 1; i >= 0; i--) {
         printf("%d", (value >> i) & 1);
     }
 }
@@ -143,10 +143,10 @@ uint8_t a_law_compression(int16_t sample){
     int sign, magnitude;
 
     if (sample < 0) {
-        sign = 0;
+        sign = 1;
         sample = -sample; // Make it positive for processing
     } else {
-        sign = 1;
+        sign = 0;
         magnitude = sample;
     }
 
@@ -169,6 +169,9 @@ uint8_t a_law_compression(int16_t sample){
 
     // Assemble A-law codeword (sign 1-bit | chord 3-bits | step 4-bits)
     uint8_t codeword = (sign << 7) | (chord << 4) | step;
+
+    // Invert the codeword to match A-law encoding
+    codeword ^= 0b01010101;
 
     return codeword;
 }
@@ -199,8 +202,12 @@ int main(int argc, char *argv[]) {
         printf("Chunk %d (%d samples):\n", chunk_idx, end - start);
         for (int i = start; i < end; i++) {
             int16_t sample = wav.dataSubchunk.data[i];
-            printf("Sample %3d: %6d (bin: ", i, sample);
-            print_binary(sample);
+            // i go printf("Sample %3d: %6d (bin: ", i, sample);
+            // print_binary(sample, 16);
+            // printf(")\n");
+            uint8_t compressed = a_law_compression(sample);
+            printf("Sample %6d -> A-law: %3d (bin: ", sample, compressed);
+            print_binary(compressed, 8);
             printf(")\n");
         }
     }
