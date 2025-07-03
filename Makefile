@@ -1,12 +1,15 @@
 .phony all:
-all: clean aLaw aLaw.s
+all: clean main asm test
 
-aLaw: aLaw.c
-	gcc -o aLaw aLaw.c
+main: main.c
+	gcc -o main.exe main.c aLaw.c
 
-aLaw.s: aLaw.c
-	gcc -S aLaw.c
+asm: main.c
+	gcc -S main.c
+
+test: aLawTest.c
+	gcc -o aLawTest.exe aLawTest.c aLaw.c
 
 .PHONY clean:
 clean:
-	rm -rf *.o *.exe *.s aLaw
+	rm -rf *.o *.exe *.s
