@@ -144,7 +144,7 @@ uint8_t a_law_compression(int16_t sample){
 
     if (sample < 0) {
         sign = 1;
-        sample = -sample; // Make it positive for processing
+        magnitude = -sample; // Make it positive for processing
     } else {
         sign = 0;
         magnitude = sample;
