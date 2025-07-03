@@ -1,7 +1,8 @@
 # executables
 *.exe
 *.s
-aLaw
+aLawTest
+main
 
 # ide files
 .idea/
