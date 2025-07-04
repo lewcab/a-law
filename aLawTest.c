@@ -3,12 +3,14 @@
 
 #include "aLaw.h" // Include the header file for aLaw.c
 
+#define NUM_TESTS 2
+
 
 int check_outcome(int test_num, int16_t sample, uint8_t result, uint8_t expected) {
     printf("Test %d:\n", test_num);
-    printf("  Sample:     0b%s\n", get_bin_str(sample, 16));
-    printf("  Compressed: 0b%s\n", get_bin_str(result, 8));
-    printf("  Expected:   0b%s\n", get_bin_str(expected, 8));
+    printf("  Sample:     %d (0b%s)\n", sample, get_bin_str(sample, 16));
+    printf("  Compressed: %d (0b%s)\n", result, get_bin_str(result, 8));
+    printf("  Expected:   %d (0b%s)\n", expected, get_bin_str(expected, 8));
     if (result == expected) {
         printf("  (%d) PASSED\n\n", test_num);
         return 1;
@@ -19,18 +21,23 @@ int check_outcome(int test_num, int16_t sample, uint8_t result, uint8_t expected
 
 
 void test_a_law_compression() {
-    int passed = 0;
-    // Test case 1
-    int16_t sample1 = 0b00000010110101;
-    uint8_t result1 = a_law_compression(sample1);
-    uint8_t expected1 = 0b10100110;
-    passed += check_outcome(1, sample1, result1, expected1);
+    const int16_t samples[NUM_TESTS] = {
+        0b000010110101,
+        0b011101110110,
+    };
+    const uint8_t expecteds[NUM_TESTS] = {
+        0b10110110,
+        0b11111111,
+    };
 
-    // Test case 2
-    int16_t sample2 = 0b10011101110110;
-    uint8_t result2 = a_law_compression(sample2);
-    uint8_t expected2 = 0b01011101;
-    passed += check_outcome(2, sample2, result2, expected2);
+    int passed = 0;
+    int sample, result, expected;
+    for (int i = 0; i < NUM_TESTS; i++) {
+        sample = samples[i];
+        expected = expecteds[i];
+        result = a_law_encode(sample);
+        passed += check_outcome(i + 1, sample, result, expected);
+    }
 
     // Add more test cases as needed
     printf("%d tests for a_law_compression passed.\n", passed);

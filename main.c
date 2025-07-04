@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
             // i go printf("Sample %3d: %6d (bin: ", i, sample);
             // print_binary(sample, 16);
             // printf(")\n");
-            uint8_t compressed = a_law_compression(sample);
+            uint8_t compressed = a_law_encode(sample);
             printf("Sample %6d -> A-law: %3d (0b%s)\n", sample, compressed, get_bin_str(compressed, 8));
         }
     }

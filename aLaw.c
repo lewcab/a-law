@@ -17,14 +17,14 @@ const char* get_bin_str(uint16_t value, int num_bits) {
 }
 
 // Compress a 16-bit signed integer sample to 8-bit A-law format
-uint8_t a_law_compression(int16_t sample){
+uint8_t a_law_encode(int16_t sample){
     int sign, magnitude;
 
     if (sample < 0) {
-        sign = 1;
+        sign = 0;
         magnitude = -sample; // Make it positive for processing
     } else {
-        sign = 0;
+        sign = 1;
         magnitude = sample;
     }
 
@@ -32,24 +32,41 @@ uint8_t a_law_compression(int16_t sample){
     if (magnitude > 0xFFF) {
         magnitude = 0xFFF; // Cap to maximum 12-bit value
     }
+    // TODO: special case for small magnitudes
+    if (magnitude <= 0b11111) {
+        return (magnitude >> 1) | (sign << 7);
+    }
 
     // Find the MSB
     int chord = 0;
-    for (int i = 11; i >= 5; i--) {
+    for (int i = 11; i >= 4; i--) {
         if (magnitude & (1 << i)) {
-            chord = i - 5;
+            chord = i - 4;
             break;
         }
     }
 
     //  Extract 4 step bits after MSB
-    int step = (magnitude >> (chord + 1)) & 0xF;
+    int step = (magnitude >> chord) & 0x0F;
+
+    printf(
+        "mag=%s, sgn=%d, chord=%d, step=%d\n",
+        get_bin_str(magnitude, 12),
+        sign,
+        chord,
+        step
+    );
 
     // Assemble A-law codeword (sign 1-bit | chord 3-bits | step 4-bits)
     uint8_t codeword = (sign << 7) | (chord << 4) | step;
 
+    printf(
+        "pre-invert=%s\n",
+        get_bin_str(codeword, 8)
+    );
+
     // Invert the codeword to match A-law encoding
-    codeword ^= 0b01010101;
+    codeword ^= 0x55;
 
     return codeword;
 }

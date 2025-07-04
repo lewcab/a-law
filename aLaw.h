@@ -1,7 +1,3 @@
-//
-// Created by lewca on 2025-07-03.
-//
-
 #ifndef ALAW_FUNCS_H
 #define ALAW_FUNCS_H
 
@@ -38,7 +34,7 @@ typedef struct {
 // Function declarations
 int parseWAV(const char *filename, WAVFile *wav);
 void printWAVInfo(const WAVFile *wav);
-uint8_t a_law_compression(int16_t sample);
+uint8_t a_law_encode(int16_t sample);
 const char* get_bin_str(uint16_t value, int num_bits);
 
 #endif //ALAW_FUNCS_H
