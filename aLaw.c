@@ -33,8 +33,8 @@ uint8_t a_law_encode(int16_t sample){
         magnitude = 0xFFF; // Cap to maximum 12-bit value
     }
     // TODO: special case for small magnitudes
-    if (magnitude <= 0b11111) {
-        return (magnitude >> 1) | (sign << 7);
+    if (magnitude < 0b10000) {
+        return (((magnitude >> 1) | (sign << 7)) ^ INVERSION_MASK);
     }
 
     // Find the MSB
