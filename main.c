@@ -9,7 +9,7 @@
 #define CHUNK_SIZE 512
 
 
-int parseWAV(const char *filename, WAVFile *wav) {
+int parse_wav(const char *filename, WAVFile *wav) {
     FILE *fp = fopen(filename, "rb");
     if (!fp) {
         perror("Cannot open file");
@@ -96,7 +96,7 @@ int parseWAV(const char *filename, WAVFile *wav) {
 }
 
 
-void printWAVInfo(const WAVFile *wav) {
+void print_wav_info(const WAVFile *wav) {
     printf("Audio Format: %u\n", wav->fmtSubchunk.audioFormat);
     printf("Channels: %u\n", wav->fmtSubchunk.numChannels);
     printf("Sample Rate: %u\n", wav->fmtSubchunk.sampleRate);
@@ -108,34 +108,89 @@ void printWAVInfo(const WAVFile *wav) {
 }
 
 
-int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("Usage: %s <input.wav>\n", argv[0]);
+int write_wav(const WAVFile *wav, const char *output_filename) {
+    FILE *fp = fopen(output_filename, "wb");
+    if (!fp) {
+        perror("Cannot open output file");
         return 1;
     }
+
+    // Write RIFF header
+    if (fwrite(&wav->riffHeader, sizeof(RIFFHeader), 1, fp) != 1) {
+        fprintf(stderr, "Failed to write RIFF header\n");
+        fclose(fp);
+        return 1;
+    }
+
+    // Write fmt subchunk
+    if (fwrite(&wav->fmtSubchunk, sizeof(FMTSubchunk), 1, fp) != 1) {
+        fprintf(stderr, "Failed to write fmt subchunk\n");
+        fclose(fp);
+        return 1;
+    }
+
+    // Write data subchunk header
+    if (fwrite(&wav->dataSubchunk.subchunk2ID, sizeof(wav->dataSubchunk.subchunk2ID), 1, fp) != 1 ||
+        fwrite(&wav->dataSubchunk.subchunk2Size, sizeof(wav->dataSubchunk.subchunk2Size), 1, fp) != 1) {
+        fprintf(stderr, "Failed to write data subchunk header\n");
+        fclose(fp);
+        return 1;
+        }
+
+    // Write audio data
+    if (fwrite(wav->dataSubchunk.data, 1, wav->dataSubchunk.subchunk2Size, fp) != wav->dataSubchunk.subchunk2Size) {
+        fprintf(stderr, "Failed to write audio data\n");
+        fclose(fp);
+        return 1;
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        printf("Usage: %s <input.wav> <output.wav>\n", argv[0]);
+        return 1;
+    }
+    const char *input_filename = argv[1];
+    const char *output_filename = argv[2];
+
+    printf("input: %s\n", input_filename);
+    printf("output: %s\n", output_filename);
 
     WAVFile wav;
-    if (parseWAV(argv[1], &wav) != 0) {
+    if (parse_wav(input_filename, &wav) != 0) {
         return 1;
     }
 
-    printWAVInfo(&wav);
+    print_wav_info(&wav);
+
+    write_wav(&wav, output_filename);
 
     int total_samples = wav.dataSubchunk.subchunk2Size / sizeof(uint16_t);
     int num_chunks = (total_samples + CHUNK_SIZE - 1) / CHUNK_SIZE;
-
 
     // Break down the audio into 512 chunks and find their amplitudes
     for (int chunk_idx = 0; chunk_idx < num_chunks; chunk_idx++) {
         int start = chunk_idx * CHUNK_SIZE;
         int end = start + CHUNK_SIZE;
         if (end > total_samples) end = total_samples;
+        int16_t out_buffer[CHUNK_SIZE];
 
-        printf("Chunk %d (%d samples):\n", chunk_idx, end - start);
         for (int i = start; i < end; i++) {
             int16_t sample = wav.dataSubchunk.data[i];
             uint8_t compressed = a_law_encode(sample);
-            printf("Sample %6d -> A-law: %3d (0b%s)\n", sample, compressed, get_bin_str(compressed, 8));
+            int16_t decompressed = a_law_decode(compressed);
+            out_buffer[i] = decompressed;
+        }
+
+        // Write the processed chunk to the output file
+        FILE *fp = fopen(output_filename, "ab");
+        if (fwrite(out_buffer, sizeof(int16_t), end - start, fp) != (end - start)) {
+            fprintf(stderr, "Failed to write processed chunk to output file\n");
+            fclose(fp);
         }
     }
 
