@@ -35,6 +35,7 @@ typedef struct {
 int parseWAV(const char *filename, WAVFile *wav);
 void printWAVInfo(const WAVFile *wav);
 uint8_t a_law_encode(int16_t sample);
+int16_t a_law_decode(uint8_t codeword);
 const char* get_bin_str(uint16_t value, int num_bits);
 
 #endif //ALAW_FUNCS_H

@@ -70,3 +70,9 @@ uint8_t a_law_encode(int16_t sample){
 
     return codeword;
 }
+
+// Decompress an 8-bit A-law codeword to a 16-bit signed integer sample
+int16_t a_law_decode(uint8_t codeword) {
+    // TODO: implement
+    return 0xFF;
+}
