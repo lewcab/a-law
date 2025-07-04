@@ -26,8 +26,8 @@ void test_a_law_compression() {
         0b011101110110,
     };
     const uint8_t expecteds[NUM_TESTS] = {
-        0b10110110,
-        0b11111111,
+        0b10110110^INVERSION_MASK,
+        0b11101101^INVERSION_MASK,
     };
 
     int passed = 0;

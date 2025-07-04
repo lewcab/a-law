@@ -38,6 +38,7 @@ uint8_t a_law_encode(int16_t sample){
     }
 
     // Find the MSB
+    // TODO: optimize... CLZ instead of loop?
     int chord = 0;
     for (int i = 11; i >= 4; i--) {
         if (magnitude & (1 << i)) {
@@ -68,7 +69,7 @@ uint8_t a_law_encode(int16_t sample){
     );
 
     // Invert the codeword to match A-law encoding
-    codeword ^= 0x55;
+    codeword ^= INVERSION_MASK;
 
     return codeword;
 }
