@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdint.h>
 
 #include "aLaw.h"
@@ -32,7 +31,6 @@ uint8_t a_law_encode(int16_t sample){
     if (magnitude > 0xFFF) {
         magnitude = 0xFFF; // Cap to maximum 12-bit value
     }
-    // TODO: special case for small magnitudes
     if (magnitude < 0b10000) {
         return (((magnitude >> 1) | (sign << 7)) ^ INVERSION_MASK);
     }
@@ -50,23 +48,8 @@ uint8_t a_law_encode(int16_t sample){
     //  Extract 4 step bits after MSB
     int step = (magnitude >> chord) & 0x0F;
 
-    // TODO: remove, this is just for debugging
-    printf(
-        "mag=%s, sgn=%d, chord=%d, step=%d\n",
-        get_bin_str(magnitude, 12),
-        sign,
-        chord,
-        step
-    );
-
     // Assemble A-law codeword (sign 1-bit | chord 3-bits | step 4-bits)
     uint8_t codeword = (sign << 7) | (chord << 4) | step;
-
-    // TODO: remove, this is just for debugging
-    printf(
-        "pre-invert=%s\n",
-        get_bin_str(codeword, 8)
-    );
 
     // Invert the codeword to match A-law encoding
     codeword ^= INVERSION_MASK;
@@ -76,6 +59,29 @@ uint8_t a_law_encode(int16_t sample){
 
 // Decompress an 8-bit A-law codeword to a 16-bit signed integer sample
 int16_t a_law_decode(uint8_t codeword) {
-    // TODO: implement
-    return 0xFF;
+    // Invert the codeword to get the original A-law codeword
+    uint8_t temp_codeword = codeword ^ INVERSION_MASK;
+
+    // Extract sign, chord, and step bits
+    int sign = (temp_codeword >> 7) & 0x01;
+    int chord = (temp_codeword >> 4) & 0x07;
+    int step = temp_codeword & 0x0F; // abcd
+
+    // Reconstruct into Signed-Magnitude representation
+    int16_t temp_sample;
+    if (chord == 0) {
+        // 0b0000000abcd1
+        temp_sample = 0x01 | step << 1; // Small magnitude case
+        if (!sign) {
+            temp_sample = -temp_sample; // Apply sign
+        }
+        return temp_sample;
+    }
+    // 0b...1abcd1...
+    temp_sample = 0x21 | step << 1;
+    temp_sample <<= chord-1;
+    if (!sign) {
+        temp_sample = -temp_sample; // Apply sign
+    }
+    return temp_sample;
 }
