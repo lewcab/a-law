@@ -3,7 +3,7 @@
 
 #include "aLaw.h" // Include the header file for aLaw.c
 
-#define NUM_TESTS 2
+#define NUM_TESTS 5
 
 
 int check_outcome(int test_num, int16_t sample, uint8_t result, uint8_t expected) {
@@ -22,10 +22,16 @@ int check_outcome(int test_num, int16_t sample, uint8_t result, uint8_t expected
 
 void test_a_law_compression() {
     const int16_t samples[NUM_TESTS] = {
+        0b000000000011,
+        0b000000011111,
+        0b000000111111,
         0b000010110101,
         0b011101110110,
     };
     const uint8_t expecteds[NUM_TESTS] = {
+        0b10000001^INVERSION_MASK,
+        0b10001111^INVERSION_MASK,
+        0b10011111^INVERSION_MASK,
         0b10110110^INVERSION_MASK,
         0b11101101^INVERSION_MASK,
     };
