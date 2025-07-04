@@ -49,6 +49,7 @@ uint8_t a_law_encode(int16_t sample){
     //  Extract 4 step bits after MSB
     int step = (magnitude >> chord) & 0x0F;
 
+    // TODO: remove, this is just for debugging
     printf(
         "mag=%s, sgn=%d, chord=%d, step=%d\n",
         get_bin_str(magnitude, 12),
@@ -60,6 +61,7 @@ uint8_t a_law_encode(int16_t sample){
     // Assemble A-law codeword (sign 1-bit | chord 3-bits | step 4-bits)
     uint8_t codeword = (sign << 7) | (chord << 4) | step;
 
+    // TODO: remove, this is just for debugging
     printf(
         "pre-invert=%s\n",
         get_bin_str(codeword, 8)
