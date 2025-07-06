@@ -35,6 +35,9 @@ typedef struct {
 
 // Function declarations
 const char* get_bin_str(uint16_t value, int num_bits);
+int get_sign(int16_t sample);
+uint16_t get_magnitude(int16_t sample);
+int get_chord(uint16_t magnitude);
 uint8_t a_law_encode(int16_t sample);
 int16_t a_law_decode(uint8_t codeword);
 

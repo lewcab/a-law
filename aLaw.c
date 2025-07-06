@@ -15,38 +15,43 @@ const char* get_bin_str(uint16_t value, int num_bits) {
     return binstr;
 }
 
+// Get the sign for signed-magnitude representation
+int get_sign(int16_t sample) {
+    return (sample < 0) ? 0 : 1; // 0 for negative, 1 for positive
+}
+
+// Get the 12-bit magnitude (capped)
+uint16_t get_magnitude(int16_t sample) {
+    uint16_t magnitude = (sample < 0) ? -sample : sample;
+    if (magnitude > 0xFFF) {
+        magnitude = 0xFFF;
+    }
+    return magnitude;
+}
+
+// Get the chord for a 12-bit sample
+int get_chord(uint16_t magnitude) {
+    // TODO: fix asm compiling ...
+    int lz = __builtin_clz(magnitude) - 20; // 20 = 32 - 12
+    return 7 - lz;
+}
+
+// Get the step (the 4 bits after MSB)
+int get_step(int magnitude, int chord) {
+    return (magnitude >> chord) & 0x0F;
+}
+
 // Compress a 16-bit signed integer sample to 8-bit A-law format
 uint8_t a_law_encode(int16_t sample){
-    int sign, magnitude;
+    int sign = get_sign(sample);
+    uint16_t magnitude = get_magnitude(sample);
 
-    if (sample < 0) {
-        sign = 0;
-        magnitude = -sample; // Make it positive for processing
-    } else {
-        sign = 1;
-        magnitude = sample;
-    }
-
-    // Truncate the sample to 12 bits as per A-law compression
-    if (magnitude > 0xFFF) {
-        magnitude = 0xFFF; // Cap to maximum 12-bit value
-    }
     if (magnitude < 0b10000) {
         return (((magnitude >> 1) | (sign << 7)) ^ INVERSION_MASK);
     }
 
-    // Find the MSB
-    // TODO: optimize... CLZ instead of loop?
-    int chord = 0;
-    for (int i = 11; i >= 4; i--) {
-        if (magnitude & (1 << i)) {
-            chord = i - 4;
-            break;
-        }
-    }
-
-    //  Extract 4 step bits after MSB
-    int step = (magnitude >> chord) & 0x0F;
+    int chord = get_chord(magnitude);
+    int step = get_step(magnitude, chord);
 
     // Assemble A-law codeword (sign 1-bit | chord 3-bits | step 4-bits)
     uint8_t codeword = (sign << 7) | (chord << 4) | step;
