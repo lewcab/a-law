@@ -6,3 +6,26 @@ main
 
 # ide files
 .idea/
+
+# Vivado junk
+*.jou
+*.log
+*.str
+*.xpr.cache/
+*.runs/
+*.ip_user_files/
+*.sim/
+*.webtalk/
+*.xpr
+*.sdk/
+*.bit
+*.hdf
+*.hwdef
+*.sysdef
+
+# SDK/boot files
+*.elf
+*.bin
+*.bsp/
+.mss/
+
