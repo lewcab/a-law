@@ -172,8 +172,14 @@ int main(int argc, char *argv[]) {
     int total_samples = wav.data_chunk.chunk_size / sizeof(uint16_t);
     int num_chunks = (total_samples + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
-    // Break down the audio into 512 chunks and find their amplitudes
+    FILE *fp = fopen(output_filename, "ab");
+    if (!fp) {
+        perror("Cannot open output file for appending");
+        free(wav.data_chunk.data);
+        return 1;
+    }
     for (int chunk_idx = 0; chunk_idx < num_chunks; chunk_idx++) {
+        // Break down the audio into 512 chunks and find their amplitudes
         int start = chunk_idx * CHUNK_SIZE;
         int end = start + CHUNK_SIZE;
         if (end > total_samples) end = total_samples;
@@ -183,18 +189,16 @@ int main(int argc, char *argv[]) {
             int16_t sample = wav.data_chunk.data[i];
             uint8_t compressed = a_law_encode(sample);
             int16_t decompressed = a_law_decode(compressed);
-            out_buffer[i] = decompressed;
+            out_buffer[i - start] = decompressed;
         }
 
-        // Write the processed chunk to the output file
-        FILE *fp = fopen(output_filename, "ab");
         if (fwrite(out_buffer, sizeof(int16_t), end - start, fp) != (end - start)) {
             fprintf(stderr, "Failed to write processed chunk to output file\n");
-            fclose(fp);
         }
     }
 
     // Cleanup
+    fclose(fp);
     free(wav.data_chunk.data);
 
     return 0;
