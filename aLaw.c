@@ -31,7 +31,6 @@ uint16_t get_magnitude(int16_t sample) {
 
 // Get the chord for a 12-bit sample
 int get_chord(uint16_t magnitude) {
-    // TODO: fix asm compiling ...
     int lz = __builtin_clz(magnitude) - 20; // 20 = 32 - 12
     return 7 - lz;
 }
