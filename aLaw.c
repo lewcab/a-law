@@ -23,9 +23,7 @@ int get_sign(int16_t sample) {
 // Get the 12-bit magnitude (capped)
 uint16_t get_magnitude(int16_t sample) {
     uint16_t magnitude = (sample < 0) ? -sample : sample;
-    if (magnitude > 0xFFF) {
-        magnitude = 0xFFF;
-    }
+    magnitude = magnitude >> 4; // Shift right to fit into 12 bits
     return magnitude;
 }
 
@@ -85,7 +83,8 @@ int16_t a_law_decode(uint8_t codeword) {
     temp_sample = 0x21 | step << 1;
     temp_sample <<= chord-1;
     if (!sign) {
-        temp_sample = -temp_sample; // Apply sign
+        temp_sample = -temp_sample;
     }
+    temp_sample =  temp_sample << 4; // Shift left to restore original magnitude
     return temp_sample;
 }
