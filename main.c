@@ -130,19 +130,14 @@ int write_wav(const WAVFile *wav, const char *output_filename) {
     }
 
     // Write data subchunk header
-    if (fwrite(&wav->data_chunk.chunk_id, sizeof(wav->data_chunk.chunk_id), 1, fp) != 1 ||
-        fwrite(&wav->data_chunk.chunk_size, sizeof(wav->data_chunk.chunk_size), 1, fp) != 1) {
+    if (
+        fwrite(&wav->data_chunk.chunk_id, sizeof(wav->data_chunk.chunk_id), 1, fp) != 1 ||
+        fwrite(&wav->data_chunk.chunk_size, sizeof(wav->data_chunk.chunk_size), 1, fp) != 1
+    ) {
         fprintf(stderr, "Failed to write data subchunk header\n");
         fclose(fp);
         return 1;
         }
-
-    // Write audio data
-    if (fwrite(wav->data_chunk.data, 1, wav->data_chunk.chunk_size, fp) != wav->data_chunk.chunk_size) {
-        fprintf(stderr, "Failed to write audio data\n");
-        fclose(fp);
-        return 1;
-    }
 
     fclose(fp);
     return 0;
