@@ -3,34 +3,21 @@
 #include "aLaw.h"
 
 
-// Print a 16-bit value in signed 2's complement binary format
-const char* get_bin_str(uint16_t value, int num_bits) {
-    static char binstr[17]; // 16 bits + null terminator
-    if (num_bits > 16) num_bits = 16;
-    if (num_bits < 1) num_bits = 1;
-    for (int i = num_bits - 1; i >= 0; --i) {
-        binstr[num_bits - 1 - i] = (value & (1 << i)) ? '1' : '0';
-    }
-    binstr[num_bits] = '\0';
-    return binstr;
-}
-
 // Get the sign for signed-magnitude representation
 int get_sign(int16_t sample) {
     return (sample < 0) ? 0 : 1; // 0 for negative, 1 for positive
 }
 
-// Get the 12-bit magnitude (capped)
+// Get the 12-bit magnitude
 uint16_t get_magnitude(int16_t sample) {
     uint16_t magnitude = (sample < 0) ? -sample : sample;
-    magnitude = magnitude >> 4; // Shift right to fit into 12 bits
+    magnitude = magnitude >> MAGNITUDE_SHIFT;
     return magnitude;
 }
 
 // Get the chord for a 12-bit sample
 int get_chord(uint16_t magnitude) {
-    int lz = __builtin_clz(magnitude) - 20; // 20 = 32 - 12
-    return 7 - lz;
+    return 27 - __builtin_clz(magnitude);
 }
 
 // Get the step (the 4 bits after MSB)
@@ -72,19 +59,17 @@ int16_t a_law_decode(uint8_t codeword) {
     // Reconstruct into Signed-Magnitude representation
     int16_t temp_sample;
     if (chord == 0) {
-        // 0b0000000abcd1
         temp_sample = 0x01 | step << 1; // Small magnitude case
         if (!sign) {
             temp_sample = -temp_sample; // Apply sign
         }
-        return temp_sample;
+        return temp_sample << MAGNITUDE_SHIFT;
     }
-    // 0b...1abcd1...
     temp_sample = 0x21 | step << 1;
     temp_sample <<= chord-1;
     if (!sign) {
         temp_sample = -temp_sample;
     }
-    temp_sample =  temp_sample << 4; // Shift left to restore original magnitude
+    temp_sample =  temp_sample << MAGNITUDE_SHIFT;
     return temp_sample;
 }

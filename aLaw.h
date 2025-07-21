@@ -32,9 +32,13 @@ typedef struct {
 } WAVFile;
 
 #define INVERSION_MASK 0x55 // Mask for inverting A-law codewords
+#define MAGNITUDE_SHIFT 4 // Shift to fit 12-bit magnitude into 16 bits and vice versa
+#define PCM_FORMAT 0x01 // PCM format identifier
+#define ALAW_FORMAT 0x06 // A-Law format identifier
+#define PCM_SAMPLE_SIZE 16 // Sample size in bits for PCM
+#define ALAW_SAMPLE_SIZE 8 // Sample size in bits for A-law
 
 // Function declarations
-const char* get_bin_str(uint16_t value, int num_bits);
 int get_sign(int16_t sample);
 uint16_t get_magnitude(int16_t sample);
 int get_chord(uint16_t magnitude);
