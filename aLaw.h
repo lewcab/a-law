@@ -39,11 +39,11 @@ typedef struct {
 #define ALAW_SAMPLE_SIZE 8 // Sample size in bits for A-law
 
 // Function declarations
-int get_sign(int16_t sample);
-uint16_t get_magnitude(int16_t sample);
-int get_chord(uint16_t magnitude);
-int get_step(int magnitude, int chord);
-uint8_t a_law_encode(int16_t sample);
-int16_t a_law_decode(uint8_t codeword);
+uint16x8_t get_sign_neon(int16x8_t samples);
+int16x8_t get_magnitude_neon(int16x8_t samples);
+int16x8_t get_chord_neon(uint16x8_t magnitudes);
+int16x8_t get_step_neon(int16x8_t magnitudes, int16x8_t chords);
+uint8x8_t assemble_codeword_neon(int16x8_t signs, int16x8_t chords, int16x8_t steps);
+void a_law_encode_neon(int16_t *samples, int8_t *codewords, int num_samples);
 
 #endif //ALAW_H

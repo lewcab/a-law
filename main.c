@@ -200,43 +200,6 @@ void convert_wav_header(WAVFile *wav, int format, int bits_per_sample, int total
 }
 
 
-uint8_t* alaw(const WAVFile *wav, int total_samples){
-    uint8_t *out_buffer = malloc(total_samples * sizeof(uint8_t));
-    if (!out_buffer) {
-        fprintf(stderr, "Failed to allocate memory for output buffer\n");
-        free(wav->data_chunk.data);
-        return NULL;
-    }
-
-    for (int i = 0; i < total_samples; i++) {
-        int16_t sample = wav->data_chunk.data[i];
-        uint8_t encoded = a_law_encode(sample);
-        out_buffer[i] = encoded;
-    }
-
-    return out_buffer;
-}
-
-
-int16_t* pcm(const WAVFile *wav, int total_samples) {
-    int16_t *out_buffer = malloc(total_samples * sizeof(int16_t));
-    if (!out_buffer) {
-        fprintf(stderr, "Failed to allocate memory for output buffer\n");
-        free(wav->data_chunk.data);
-        return NULL;
-    }
-
-    for (int i = 0; i < total_samples; i++) {
-        int16_t sample = wav->data_chunk.data[i];
-        uint8_t encoded = a_law_encode(sample);
-        int16_t decoded = a_law_decode(encoded);
-        out_buffer[i] = decoded;
-    }
-
-    return out_buffer;
-}
-
-
 int main(int argc, char *argv[]) {
     if (argc < 3) {
         printf("Usage: %s <input.wav> <output.wav>\n", argv[0]);
@@ -244,12 +207,6 @@ int main(int argc, char *argv[]) {
     }
     const char *input_filename = argv[1];
     const char *output_filename = argv[2];
-    int output_format = ALAW_FORMAT;
-    int bits_per_sample = ALAW_SAMPLE_SIZE;
-    if (argc == 4) {
-        output_format = PCM_FORMAT;
-        bits_per_sample = PCM_SAMPLE_SIZE;
-    }
 
     printf("input: %s\n", input_filename);
     printf("output: %s\n", output_filename);
@@ -263,28 +220,18 @@ int main(int argc, char *argv[]) {
     print_wav_info(&wav);
 
     int total_samples = wav.data_chunk.chunk_size / sizeof(int16_t);
-    if (output_format == ALAW_FORMAT) {
-        uint8_t *out_buffer = alaw(&wav, total_samples);
-        convert_wav_header(&wav, output_format, bits_per_sample, total_samples);
-        if (write_wav_alaw(&wav, output_filename, out_buffer) != 0) {
-            fprintf(stderr, "Failed to write output WAV file\n");
-            free(wav.data_chunk.data);
-            free(out_buffer);
-            return 1;
-        }
+    uint8_t *out_buffer = malloc(total_samples * sizeof(uint8_t));
+    if (!out_buffer) {
+        fprintf(stderr, "Failed to allocate memory for output buffer\n");
+        free(wav.data_chunk.data);
+        return 1;
+    }
+    a_law_encode_neon(wav.data_chunk.data, out_buffer, total_samples);
+    convert_wav_header(&wav, ALAW_FORMAT, ALAW_SAMPLE_SIZE, total_samples);
+    if (write_wav_alaw(&wav, output_filename, out_buffer) != 0) {
         free(out_buffer);
-
-    } else if (output_format == PCM_FORMAT) {
-        int16_t *out_buffer = pcm(&wav, total_samples);
-        convert_wav_header(&wav, output_format, bits_per_sample, total_samples);
-        if (write_wav_pcm(&wav, output_filename, out_buffer) != 0) {
-            fprintf(stderr, "Failed to write output WAV file\n");
-            free(wav.data_chunk.data);
-            free(out_buffer);
-            return 1;
-        }
-        free(out_buffer);
-
+        free(wav.data_chunk.data);
+        return 1;
     }
 
     printf("\nOutput WAV Header\n");
@@ -292,6 +239,7 @@ int main(int argc, char *argv[]) {
 
     // Cleanup
     free(wav.data_chunk.data);
+    free(out_buffer);
 
     return 0;
 }
