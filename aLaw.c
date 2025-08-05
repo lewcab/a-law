@@ -7,18 +7,22 @@
 // Get the sign for signed-magnitude representation
 uint8x8_t get_sign_neon(int16x8_t samples) {
     uint16x8_t signs = vcgtq_s16(samples, vdupq_n_s16(0));
-    return vmovn_u16(signs);
+    uint8x8_t results = vmovn_u16(signs);
+    return results;
 }
 
 // Get the 12-bit magnitude
 int16x8_t get_magnitude_neon(int16x8_t samples) {
-    int16x8_t abs_samples = vqabsq_s16(samples);
-    return vshrq_n_s16(abs_samples, MAGNITUDE_SHIFT);
+    int16x8_t abs_samples = vabsq_s16(samples);
+    int16x8_t results = vshrq_n_s16(abs_samples, MAGNITUDE_SHIFT);
+    return results;
 }
 
 // Get the chord for a 12-bit sample
 int16x8_t get_chord_neon(int16x8_t magnitudes) {
-    return vsubq_s16(vdupq_n_s16(27), vclzq_s16(magnitudes));
+    uint16x8_t u_magnitudes = vreinterpretq_u16_s16(magnitudes);
+    uint16x8_t clz_result = vclzq_u16(u_magnitudes);
+    return vsubq_s16(vdupq_n_s16(27), vreinterpretq_s16_u16(clz_result));
 }
 
 // Get the step (the 4 bits after MSB)
@@ -26,7 +30,7 @@ uint8x8_t get_step_neon(int16x8_t magnitudes, int16x8_t chords) {
     // flip chord so left shift by chord shift to the right
     int16x8_t chords_neg = vnegq_s16(chords);
     int16x8_t shifted_magnitude = vshlq_s16(magnitudes, chords_neg);
-    int16x8_t steps = vandq_s16(shifted_magnitude, vdupq_n_s16(0x0F))
+    int16x8_t steps = vandq_s16(shifted_magnitude, vdupq_n_s16(0x0F));
     return vreinterpret_u8_s8(vmovn_s16(steps));
 }
 
@@ -43,7 +47,7 @@ uint8x8_t assemble_codeword_neon(uint8x8_t signs, int16x8_t chords, uint8x8_t st
  * @param codewords output array of 8-bit A-law encoded values
  * @param num_samples number of samples to encode
  */
-void a_law_encode_neon(int16_t *samples, int8_t *codewords, int num_samples) {
+void a_law_encode_neon(int16_t *samples, uint8_t *codewords, int num_samples) {
     int num_16x8 = (num_samples + 7) / 8;
     int idx = 0;
     for (int i = 0; i < num_16x8; i++) {
@@ -52,7 +56,7 @@ void a_law_encode_neon(int16_t *samples, int8_t *codewords, int num_samples) {
         int16x8_t vec_samples = vld1q_s16(&samples[idx]);
 
         // Get the sign (0 for negative, 1 for positive)
-        int16x8_t vec_signs = get_sign_neon(vec_samples);
+        uint8x8_t vec_signs = get_sign_neon(vec_samples);
 
         // Get the magnitude (absolute value)
         int16x8_t vec_magnitudes = get_magnitude_neon(vec_samples);
@@ -61,16 +65,17 @@ void a_law_encode_neon(int16_t *samples, int8_t *codewords, int num_samples) {
         int16x8_t vec_chords = get_chord_neon(vec_magnitudes);
 
         // Get the step
-        int16x8_t vec_steps = get_step_neon(vec_magnitudes, vec_chords);
+        uint8x8_t vec_steps = get_step_neon(vec_magnitudes, vec_chords);
 
         // Assemble the A-law codeword
         uint8x8_t vec_codewords = assemble_codeword_neon(vec_signs, vec_chords, vec_steps);
 
         // Invert the codeword
-        vec_codewords = veor_u8(vec_codewords, vdup_n_u8(INVERSION_MASK));
+        uint8x8_t inversion_mask = {INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK};
+        vec_codewords = veor_u8(vec_codewords, inversion_mask);
 
         // Store the result
-        vst1_u8(&codewords[i], vec_codewords);
+        vst1_u8(&codewords[idx], vec_codewords);
     }
 
 }
