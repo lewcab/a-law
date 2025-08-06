@@ -72,9 +72,9 @@ void a_law_encode_neon(int16_t *samples, uint8_t *codewords, int num_samples) {
         vec_codewords = veor_u8(vec_codewords, inversion_mask);
 
         // Handle small magnitudes
-        uint8x8_t small_flags = vreinterpret_u8_s8(vmovn_s16(vcltq_s16(vec_magnitudes, vdupq_n_s16(0b10000))));
-        uint8x8_t vec_codewords_small = get_small_codewords(vec_magnitudes, vec_signs);
-        small_flags = veor_u8(vec_codewords_small, inversion_mask);
+        uint8x8_t small_flags = vmovn_u16(vcltq_s16(vec_magnitudes, vdupq_n_s16(0b10000)));
+		uint8x8_t vec_codewords_small = get_small_codewords(vec_magnitudes, vec_signs);
+		vec_codewords_small = veor_u8(vec_codewords_small, inversion_mask);
 
         // Combine the small codewords with the main codewords
         uint8x8_t final_codewords = vbsl_u8(
