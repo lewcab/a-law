@@ -41,6 +41,12 @@ uint8x8_t assemble_codeword_neon(uint8x8_t signs, int16x8_t chords, uint8x8_t st
     return vorr_u8(signs_shifted, vorr_u8(chords_shifted, steps));
 }
 
+uint8x8_t get_small_codewords(int16x8_t magnitudes, uint8x8_t signs) {
+    uint8x8_t magnitudes_u8 = vreinterpret_u8_s8(vmovn_s16(magnitudes));
+    uint8x8_t small_codewords = vorr_u8(vshr_n_u8(magnitudes_u8, 1), vshl_n_u8(signs, 7));
+    return small_codewords;
+}
+
 /**
  * Compress 16-bit signed integer samples to 8-bit A-law codewords using SIMD.
  * @param samples input array of 16-bit signed integers
@@ -55,27 +61,30 @@ void a_law_encode_neon(int16_t *samples, uint8_t *codewords, int num_samples) {
         // Load 8 signed 16-bit samples into a NEON vector
         int16x8_t vec_samples = vld1q_s16(&samples[idx]);
 
-        // Get the sign (0 for negative, 1 for positive)
         uint8x8_t vec_signs = get_sign_neon(vec_samples);
-
-        // Get the magnitude (absolute value)
         int16x8_t vec_magnitudes = get_magnitude_neon(vec_samples);
-
-        // Get the chord
         int16x8_t vec_chords = get_chord_neon(vec_magnitudes);
-
-        // Get the step
         uint8x8_t vec_steps = get_step_neon(vec_magnitudes, vec_chords);
 
         // Assemble the A-law codeword
         uint8x8_t vec_codewords = assemble_codeword_neon(vec_signs, vec_chords, vec_steps);
-
-        // Invert the codeword
         uint8x8_t inversion_mask = {INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK, INVERSION_MASK};
         vec_codewords = veor_u8(vec_codewords, inversion_mask);
 
+        // Handle small magnitudes
+        uint8x8_t small_flags = vreinterpret_u8_s8(vmovn_s16(vcltq_s16(vec_magnitudes, vdupq_n_s16(0b10000))));
+        uint8x8_t vec_codewords_small = get_small_codewords(vec_magnitudes, vec_signs);
+        small_flags = veor_u8(vec_codewords_small, inversion_mask);
+
+        // Combine the small codewords with the main codewords
+        uint8x8_t final_codewords = vbsl_u8(
+            small_flags,
+            vec_codewords_small,
+            vec_codewords
+        );
+
         // Store the result
-        vst1_u8(&codewords[idx], vec_codewords);
+        vst1_u8(&codewords[idx], final_codewords);
     }
 
 }

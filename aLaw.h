@@ -46,6 +46,7 @@ int16x8_t get_magnitude_neon(int16x8_t samples);
 int16x8_t get_chord_neon(int16x8_t magnitudes);
 uint8x8_t get_step_neon(int16x8_t magnitudes, int16x8_t chords);
 uint8x8_t assemble_codeword_neon(uint8x8_t signs, int16x8_t chords, uint8x8_t steps);
+uint8x8_t get_small_codewords(int16x8_t magnitudes, uint8x8_t signs);
 void a_law_encode_neon(int16_t *samples, uint8_t *codewords, int num_samples);
 
 #endif //ALAW_H
