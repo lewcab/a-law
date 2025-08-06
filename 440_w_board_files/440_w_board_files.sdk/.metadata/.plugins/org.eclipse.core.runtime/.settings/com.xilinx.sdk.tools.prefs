@@ -1,0 +1,16 @@
+com.xilinx.sdk.linkgen.prefs.aLaw\:.bss=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.data=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.data1=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.fixup=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.rodata=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.rodata1=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.sbss=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.sbss2=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.sdata=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.sdata2=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:.text=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:heap=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:heap-size=2097152
+com.xilinx.sdk.linkgen.prefs.aLaw\:stack=ps7_ddr_0
+com.xilinx.sdk.linkgen.prefs.aLaw\:stack-size=131072
+eclipse.preferences.version=1
