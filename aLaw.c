@@ -5,7 +5,7 @@
 
 // Get the sign for signed-magnitude representation
 int get_sign(int16_t sample) {
-    return (sample < 0) ? 0 : 1; // 0 for negative, 1 for positive
+    return sample >= 0; // 0 for negative, 1 for positive
 }
 
 // Get the 12-bit magnitude
