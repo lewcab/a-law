@@ -8,6 +8,7 @@
 
 extern const uint8_t encoded_lut[4096];
 extern const int16_t decoded_lut[256];
+extern const int16_t speech_data[];
 
 #include "speech.h"
 
@@ -16,97 +17,89 @@ FATFS fatfs;
 FIL file;
 FRESULT rc;
 
-int parse_wav_fatfs(const char *filename, WAVFile *wav) {
-    rc = f_mount(&fatfs, "0:/", 1);
-    if (rc != FR_OK) {
-        xil_printf("Failed to mount SD card: %d\n", rc);
+int parse_wav(const char *filename, WAVFile *wav) {
+    FILE *fp = fopen(filename, "rb");
+    if (!fp) {
+        perror("Cannot open file");
         return 1;
     }
-
-    rc = f_open(&file, filename, FA_READ);
-    if (rc != FR_OK) {
-        xil_printf("Failed to open WAV file: %d\n", rc);
-        return 1;
-    }
-
-    UINT br;
 
     // Read RIFF header
-    if (f_read(&file, &wav->riff_chunk, sizeof(RIFFChunk), &br) != FR_OK || br != sizeof(RIFFChunk)) {
-        xil_printf("Failed to read RIFF header\n");
-        f_close(&file);
+    if (fread(&wav->riff_chunk, sizeof(RIFFChunk), 1, fp) != 1) {
+        fprintf(stderr, "Failed to read RIFF header\n");
+        fclose(fp);
         return 1;
     }
 
+    // Validate RIFF header
     if (strncmp(wav->riff_chunk.chunk_id, "RIFF", 4) != 0 || strncmp(wav->riff_chunk.format_id, "WAVE", 4) != 0) {
-        xil_printf("Not a valid WAV file\n");
-        f_close(&file);
+        fprintf(stderr, "Not a valid WAV file\n");
+        fclose(fp);
         return 1;
     }
 
-    // Read until "fmt "
+    // Read chunks until we find "fmt "
     while (1) {
         char chunkId[4];
         uint32_t chunkSize;
-
-        if (f_read(&file, chunkId, 4, &br) != FR_OK || br != 4) break;
-        if (f_read(&file, &chunkSize, 4, &br) != FR_OK || br != 4) break;
+        if (fread(chunkId, 1, 4, fp) != 4) break;
+        if (fread(&chunkSize, 4, 1, fp) != 1) break;
 
         if (strncmp(chunkId, "fmt ", 4) == 0) {
             memcpy(wav->format_chunk.chunk_id, chunkId, 4);
             wav->format_chunk.chunk_size = chunkSize;
-
-            if (f_read(&file, &wav->format_chunk.audio_format, chunkSize, &br) != FR_OK || br != chunkSize) {
-                xil_printf("Failed to read fmt chunk\n");
-                f_close(&file);
+            if (fread(&wav->format_chunk.audio_format, chunkSize, 1, fp) != 1) {
+                fprintf(stderr, "Failed to read fmt chunk\n");
+                fclose(fp);
                 return 1;
             }
-
+            // Validate the format: Mono and 16 bits per sample
             if (wav->format_chunk.num_channels != 1 || wav->format_chunk.bits_per_sample != 16) {
-                xil_printf("Unsupported format. Must be mono and 16-bit.\n");
-                f_close(&file);
+                fprintf(stderr, "Unsupported WAV format. Only mono (1 channel) and 16 bits per sample are supported.\n");
+                fclose(fp);
                 return 1;
             }
-
             break;
         } else {
-            f_lseek(&file, f_tell(&file) + chunkSize);
+            // Skip this chunk
+            fseek(fp, chunkSize, SEEK_CUR);
         }
     }
 
-    // Read until "data"
+    // Read chunks until we find "data"
     while (1) {
         char chunkId[4];
         uint32_t chunkSize;
-
-        if (f_read(&file, chunkId, 4, &br) != FR_OK || br != 4) break;
-        if (f_read(&file, &chunkSize, 4, &br) != FR_OK || br != 4) break;
+        if (fread(chunkId, 1, 4, fp) != 4) break;
+        if (fread(&chunkSize, 4, 1, fp) != 1) break;
 
         if (strncmp(chunkId, "data", 4) == 0) {
             memcpy(wav->data_chunk.chunk_id, chunkId, 4);
             wav->data_chunk.chunk_size = chunkSize;
 
+            // Allocate memory for the audio data
             wav->data_chunk.data = (int16_t*)malloc(chunkSize);
             if (!wav->data_chunk.data) {
-                xil_printf("Failed to allocate memory for audio data\n");
-                f_close(&file);
+                fprintf(stderr, "Failed to allocate memory for audio data\n");
+                fclose(fp);
                 return 1;
             }
 
-            if (f_read(&file, wav->data_chunk.data, chunkSize, &br) != FR_OK || br != chunkSize) {
-                xil_printf("Failed to read audio data\n");
+            // Read the audio data
+            if (fread(wav->data_chunk.data, 1, chunkSize, fp) != chunkSize) {
+                fprintf(stderr, "Failed to read audio data\n");
                 free(wav->data_chunk.data);
-                f_close(&file);
+                fclose(fp);
                 return 1;
             }
-
             break;
         } else {
-            f_lseek(&file, f_tell(&file) + chunkSize);
+            // Skip this chunk
+            fseek(fp, chunkSize, SEEK_CUR);
         }
     }
 
-    f_close(&file);
+    fclose(fp);
     return 0;
 }
 
@@ -119,6 +112,89 @@ void print_wav_info(const WAVFile *wav) {
     printf("Bits Per Sample: %u\n", wav->format_chunk.bits_per_sample);
     printf("Data Size: %lu bytes\n", (unsigned long)wav->data_chunk.chunk_size);
     printf("Duration: %.2f seconds\n", (float)wav->data_chunk.chunk_size / wav->format_chunk.byte_rate);
+}
+
+
+int write_wav_alaw(const WAVFile *wav, const char *output_filename, const uint8_t *out_buffer) {
+    FILE *fp = fopen(output_filename, "wb");
+    if (!fp) {
+        printf("File system not available, skipping file write.\n");
+        return 0;  // Return success to continue program execution
+    }
+
+    // Write RIFF header
+    if (fwrite(&wav->riff_chunk, sizeof(RIFFChunk), 1, fp) != 1) {
+        fclose(fp);
+        return 1;
+    }
+
+    // Write fmt subchunk
+    if (fwrite(&wav->format_chunk, sizeof(FormatChunk), 1, fp) != 1) {
+        fclose(fp);
+        return 1;
+    }
+
+    // Write data subchunk header
+    if (
+        fwrite(&wav->data_chunk.chunk_id, sizeof(wav->data_chunk.chunk_id), 1, fp) != 1 ||
+        fwrite(&wav->data_chunk.chunk_size, sizeof(wav->data_chunk.chunk_size), 1, fp) != 1
+    ) {
+        fclose(fp);
+        return 1;
+    }
+
+    // Write audio data
+    if (fwrite(out_buffer, sizeof(uint8_t), wav->data_chunk.chunk_size / sizeof(uint8_t), fp) != wav->data_chunk.chunk_size / sizeof(uint8_t)) {
+        fclose(fp);
+        return 1;
+    }
+
+    fclose(fp);
+    printf("File written successfully.\n");
+    return 0;
+}
+
+
+int write_wav_pcm(const WAVFile *wav, const char *output_filename, const int16_t *out_buffer) {
+    FILE *fp = fopen(output_filename, "wb");
+    if (!fp) {
+        perror("Cannot open output file");
+        return 1;
+    }
+
+    // Write RIFF header
+    if (fwrite(&wav->riff_chunk, sizeof(RIFFChunk), 1, fp) != 1) {
+        fprintf(stderr, "Failed to write RIFF header\n");
+        fclose(fp);
+        return 1;
+    }
+
+    // Write fmt subchunk
+    if (fwrite(&wav->format_chunk, sizeof(FormatChunk), 1, fp) != 1) {
+        fprintf(stderr, "Failed to write fmt subchunk\n");
+        fclose(fp);
+        return 1;
+    }
+
+    // Write data subchunk header
+    if (
+        fwrite(&wav->data_chunk.chunk_id, sizeof(wav->data_chunk.chunk_id), 1, fp) != 1 ||
+        fwrite(&wav->data_chunk.chunk_size, sizeof(wav->data_chunk.chunk_size), 1, fp) != 1
+    ) {
+        fprintf(stderr, "Failed to write data subchunk header\n");
+        fclose(fp);
+        return 1;
+    }
+
+    // Write audio data
+    if (fwrite(out_buffer, sizeof(int16_t), wav->data_chunk.chunk_size / sizeof(int16_t), fp) != wav->data_chunk.chunk_size / sizeof(int16_t)) {
+        fprintf(stderr, "Failed to write audio data\n");
+        fclose(fp);
+        return 1;
+    }
+
+    fclose(fp);
+    return 0;
 }
 
 
@@ -140,26 +216,16 @@ uint8_t* alaw(const WAVFile *wav, int total_samples){
     }
 
     printf("Starting A-law encoding...\n");
-
+    
     for (int i = 0; i < total_samples; i++) {
+        // Shift 16-bit PCM sample to 12-bit (remove bottom 4 bits)
         int16_t sample = wav->data_chunk.data[i];
+        uint16_t index = (sample >> 4) & 0x0FFF;  // ensure 12-bit positive index
 
-        // Get magnitude and restore sign after lookup
-        uint16_t magnitude = (sample < 0) ? -sample : sample;
-        uint16_t index = (magnitude >> 4) & 0x0FFF;  // Ensure 12-bit index
-
-        uint8_t alaw_byte = encoded_lut[index];
-
-        // Inject sign bit manually (bit 7: 1 = positive, 0 = negative)
-        if (sample >= 0) {
-            alaw_byte |= 0x80;
-        } else {
-            alaw_byte &= 0x7F;
-        }
-
-        out_buffer[i] = alaw_byte;
+        // Lookup A-law from BRAM
+        out_buffer[i] = encoded_lut[index];
     }
-
+    
     printf("A-law encoding finished.\n");
 
     return out_buffer;
@@ -294,20 +360,47 @@ int write_wav_alaw_sd(const WAVFile *wav, const char *output_filename, const uin
     return result;
 }
 
-int main(void) {
-    printf("encoded_lut:  %p\n", encoded_lut);   // Expect 0x40000000+
 
-    // Parse speech.wav file from SD card
-    WAVFile wav;
-    if (parse_wav_fatfs("0:/speech.wav", &wav) != 0) {
-        xil_printf("Failed to parse speech.wav file\n");
-        return 1;
+int16_t* pcm(const WAVFile *wav, int total_samples) {
+    int16_t *out_buffer = malloc(total_samples * sizeof(int16_t));
+    if (!out_buffer) {
+        fprintf(stderr, "Failed to allocate memory for output buffer\n");
+        free(wav->data_chunk.data);
+        return NULL;
     }
 
-    printf("Loaded speech.wav successfully\n");
-    print_wav_info(&wav);
+    printf("Starting PCM decoding...\n");
+
+    for (int i = 0; i < total_samples; i++) {
+        uint8_t alaw_sample = ((uint8_t*)wav->data_chunk.data)[i];  // If input is encoded
+        out_buffer[i] = decoded_lut[alaw_sample];
+    }
     
-    int total_samples = wav.data_chunk.chunk_size / sizeof(int16_t);
+    printf("PCM decoding finished.\n");
+
+    return out_buffer;
+}
+
+
+int main(void) {
+    printf("encoded_lut:  %p\n", encoded_lut);   // Expect 0x40000000+
+    printf("decoded_lut:  %p\n", decoded_lut);   // Expect 0x4000xxxx
+    printf("speech_data:  %p\n", speech_data);   // Expect 0x0010xxxx
+
+    // Construct WAVFile struct using speech_data[] (16-bit PCM input)
+    WAVFile wav;
+
+    // Set up initial format for input data (16-bit PCM)
+    wav.format_chunk.audio_format = PCM_FORMAT;  // Start as PCM
+    wav.format_chunk.num_channels = 1;
+    wav.format_chunk.sample_rate = 48000;   // Match your software version (48kHz)
+    wav.format_chunk.bits_per_sample = 16;  // Input is 16-bit PCM
+    wav.format_chunk.bytes_per_block = 2;   // 1 channel * 16 bits / 8 = 2 bytes
+    wav.format_chunk.byte_rate = 96000;     // 48000 * 2 = 96000
+    wav.data_chunk.data = (int16_t *)speech_data;
+    wav.data_chunk.chunk_size = speech_data_len * sizeof(int16_t);  // Input data size in bytes
+    int total_samples = speech_data_len;  // Total number of samples (not bytes)
+
     printf("Input: %d samples, %d bytes of 16-bit PCM data\n", total_samples, wav.data_chunk.chunk_size);
 
     // Convert to A-law
@@ -319,18 +412,18 @@ int main(void) {
     printf("Output: %d samples, %d bytes of A-law data\n", total_samples, wav.data_chunk.chunk_size);
     xil_printf("Total samples: %d, A-law data size: %d bytes\n", total_samples, wav.data_chunk.chunk_size);
 
-    // Write to SD card
+    // Try writing to SD card first, fallback to regular file system
     if (write_wav_alaw_sd(&wav, "0:/output_alaw.wav", out_buffer) != 0) {
-        xil_printf("SD card write failed\n");
-        free(wav.data_chunk.data);
-        free(out_buffer);
-        return 1;
+        xil_printf("SD card write failed, trying regular file system...\n");
+        if (write_wav_alaw(&wav, "output_alaw.wav", out_buffer) != 0) {
+            fprintf(stderr, "Failed to write A-law WAV\n");
+            free(out_buffer);
+            return 1;
+        }
     } else {
         xil_printf("A-law WAV successfully written to SD card\n");
     }
 
-    // Clean up allocated memory
-    free(wav.data_chunk.data);
     free(out_buffer);
 
     return 0;
