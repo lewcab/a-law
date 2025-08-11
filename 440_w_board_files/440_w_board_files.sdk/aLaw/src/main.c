@@ -2,14 +2,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "xtime_l.h"
 #include "ff.h"
 #include "xil_printf.h"
 #include "xil_cache.h"
 
+#include "speech.h"
+
 extern const uint8_t encoded_lut[4096];
 extern const int16_t decoded_lut[256];
 
-#include "speech.h"
 
 // FATFS globals
 FATFS fatfs;
@@ -295,6 +297,8 @@ int write_wav_alaw_sd(const WAVFile *wav, const char *output_filename, const uin
 }
 
 int main(void) {
+
+
     printf("encoded_lut:  %p\n", encoded_lut);   // Expect 0x40000000+
 
     // Parse speech.wav file from SD card
@@ -307,12 +311,18 @@ int main(void) {
     printf("Loaded speech.wav successfully\n");
     print_wav_info(&wav);
     
+    XTime t0, t1;
+	XTime_GetTime(&t0);
+
     int total_samples = wav.data_chunk.chunk_size / sizeof(int16_t);
     printf("Input: %d samples, %d bytes of 16-bit PCM data\n", total_samples, wav.data_chunk.chunk_size);
 
     // Convert to A-law
     uint8_t *out_buffer = alaw(&wav, total_samples);
     
+    XTime_GetTime(&t1);
+	u64 ticks = t1 - t0;
+
     // Now convert header for A-law output (8-bit, half the data size)
     convert_wav_header(&wav, ALAW_FORMAT, ALAW_SAMPLE_SIZE, total_samples);
 
@@ -332,6 +342,12 @@ int main(void) {
     // Clean up allocated memory
     free(wav.data_chunk.data);
     free(out_buffer);
+
+
+
+    u64 us = (ticks * 1000000ULL) / COUNTS_PER_SECOND;
+    u32 ms = (u32)(us / 1000ULL);
+    xil_printf("elapsed: %u ms (%u us)\n", ms, us);
 
     return 0;
 }

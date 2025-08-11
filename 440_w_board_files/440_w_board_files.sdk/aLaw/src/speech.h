@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-extern const int16_t speech_data[];
-extern const unsigned int speech_data_len;
 
 // Define structures
 typedef struct {

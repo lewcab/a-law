@@ -9,20 +9,17 @@ LD_SRCS += \
 C_SRCS += \
 ../src/decoded_lut.c \
 ../src/encoded_lut.c \
-../src/main.c \
-../src/speech.c 
+../src/main.c 
 
 OBJS += \
 ./src/decoded_lut.o \
 ./src/encoded_lut.o \
-./src/main.o \
-./src/speech.o 
+./src/main.o 
 
 C_DEPS += \
 ./src/decoded_lut.d \
 ./src/encoded_lut.d \
-./src/main.d \
-./src/speech.d 
+./src/main.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

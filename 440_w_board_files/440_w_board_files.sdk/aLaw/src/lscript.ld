@@ -237,6 +237,10 @@ SECTIONS
    __bss_end = .;
 } > ps7_ddr_0
 
+.lut_bram 0x40000000 : {
+    KEEP(*(.lut_bram))
+} > axi_bram_ctrl_0_Mem0
+
 _SDA_BASE_ = __sdata_start + ((__sbss_end - __sdata_start) / 2 );
 
 _SDA2_BASE_ = __sdata2_start + ((__sbss2_end - __sdata2_start) / 2 );

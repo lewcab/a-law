@@ -1,0 +1,355 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include "xtime_l.h"
+#include "ff.h"
+#include "xil_printf.h"
+#include "xil_cache.h"
+
+#include "speech.h"
+
+extern const uint8_t encoded_lut[4096];
+extern const int16_t decoded_lut[256];
+
+
+// FATFS globals
+FATFS fatfs;
+FIL file;
+FRESULT rc;
+
+int parse_wav_fatfs(const char *filename, WAVFile *wav) {
+    rc = f_mount(&fatfs, "0:/", 1);
+    if (rc != FR_OK) {
+        xil_printf("Failed to mount SD card: %d\n", rc);
+        return 1;
+    }
+
+    rc = f_open(&file, filename, FA_READ);
+    if (rc != FR_OK) {
+        xil_printf("Failed to open WAV file: %d\n", rc);
+        return 1;
+    }
+
+    UINT br;
+
+    // Read RIFF header
+    if (f_read(&file, &wav->riff_chunk, sizeof(RIFFChunk), &br) != FR_OK || br != sizeof(RIFFChunk)) {
+        xil_printf("Failed to read RIFF header\n");
+        f_close(&file);
+        return 1;
+    }
+
+    if (strncmp(wav->riff_chunk.chunk_id, "RIFF", 4) != 0 || strncmp(wav->riff_chunk.format_id, "WAVE", 4) != 0) {
+        xil_printf("Not a valid WAV file\n");
+        f_close(&file);
+        return 1;
+    }
+
+    // Read until "fmt "
+    while (1) {
+        char chunkId[4];
+        uint32_t chunkSize;
+
+        if (f_read(&file, chunkId, 4, &br) != FR_OK || br != 4) break;
+        if (f_read(&file, &chunkSize, 4, &br) != FR_OK || br != 4) break;
+
+        if (strncmp(chunkId, "fmt ", 4) == 0) {
+            memcpy(wav->format_chunk.chunk_id, chunkId, 4);
+            wav->format_chunk.chunk_size = chunkSize;
+
+            if (f_read(&file, &wav->format_chunk.audio_format, chunkSize, &br) != FR_OK || br != chunkSize) {
+                xil_printf("Failed to read fmt chunk\n");
+                f_close(&file);
+                return 1;
+            }
+
+            if (wav->format_chunk.num_channels != 1 || wav->format_chunk.bits_per_sample != 16) {
+                xil_printf("Unsupported format. Must be mono and 16-bit.\n");
+                f_close(&file);
+                return 1;
+            }
+
+            break;
+        } else {
+            f_lseek(&file, f_tell(&file) + chunkSize);
+        }
+    }
+
+    // Read until "data"
+    while (1) {
+        char chunkId[4];
+        uint32_t chunkSize;
+
+        if (f_read(&file, chunkId, 4, &br) != FR_OK || br != 4) break;
+        if (f_read(&file, &chunkSize, 4, &br) != FR_OK || br != 4) break;
+
+        if (strncmp(chunkId, "data", 4) == 0) {
+            memcpy(wav->data_chunk.chunk_id, chunkId, 4);
+            wav->data_chunk.chunk_size = chunkSize;
+
+            wav->data_chunk.data = (int16_t*)malloc(chunkSize);
+            if (!wav->data_chunk.data) {
+                xil_printf("Failed to allocate memory for audio data\n");
+                f_close(&file);
+                return 1;
+            }
+
+            if (f_read(&file, wav->data_chunk.data, chunkSize, &br) != FR_OK || br != chunkSize) {
+                xil_printf("Failed to read audio data\n");
+                free(wav->data_chunk.data);
+                f_close(&file);
+                return 1;
+            }
+
+            break;
+        } else {
+            f_lseek(&file, f_tell(&file) + chunkSize);
+        }
+    }
+
+    f_close(&file);
+    return 0;
+}
+
+void print_wav_info(const WAVFile *wav) {
+    printf("Audio Format: %u\n", wav->format_chunk.audio_format);
+    printf("Channels: %u\n", wav->format_chunk.num_channels);
+    printf("Sample Rate: %lu\n", (unsigned long)wav->format_chunk.sample_rate);
+    printf("Byte Rate: %lu\n", (unsigned long)wav->format_chunk.byte_rate);
+    printf("Block Align: %u\n", wav->format_chunk.bytes_per_block);
+    printf("Bits Per Sample: %u\n", wav->format_chunk.bits_per_sample);
+    printf("Data Size: %lu bytes\n", (unsigned long)wav->data_chunk.chunk_size);
+    printf("Duration: %.2f seconds\n", (float)wav->data_chunk.chunk_size / wav->format_chunk.byte_rate);
+}
+
+
+void convert_wav_header(WAVFile *wav, int format, int bits_per_sample, int total_samples) {
+    wav->format_chunk.audio_format = format;
+    wav->format_chunk.bits_per_sample = bits_per_sample;
+    wav->format_chunk.bytes_per_block = wav->format_chunk.num_channels * wav->format_chunk.bits_per_sample / 8;
+    wav->format_chunk.byte_rate = wav->format_chunk.sample_rate * wav->format_chunk.bytes_per_block;
+    wav->data_chunk.chunk_size = total_samples * wav->format_chunk.bytes_per_block;
+}
+
+
+uint8_t* alaw(const WAVFile *wav, int total_samples){
+    uint8_t *out_buffer = malloc(total_samples * sizeof(uint8_t));
+    if (!out_buffer) {
+        fprintf(stderr, "Failed to allocate memory for output buffer\n");
+        free(wav->data_chunk.data);
+        return NULL;
+    }
+
+    printf("Starting A-law encoding...\n");
+
+    for (int i = 0; i < total_samples; i++) {
+        int16_t sample = wav->data_chunk.data[i];
+
+        // Get magnitude and restore sign after lookup
+        uint16_t magnitude = (sample < 0) ? -sample : sample;
+        uint16_t index = (magnitude >> 4) & 0x0FFF;  // Ensure 12-bit index
+
+        uint8_t alaw_byte = encoded_lut[index];
+
+        // Inject sign bit manually (bit 7: 1 = positive, 0 = negative)
+        if (sample >= 0) {
+            alaw_byte |= 0x80;
+        } else {
+            alaw_byte &= 0x7F;
+        }
+
+        out_buffer[i] = alaw_byte;
+    }
+
+    printf("A-law encoding finished.\n");
+
+    return out_buffer;
+}
+
+
+int write_file_to_sd(const char *filename, const uint8_t *data, size_t size) {
+    rc = f_mount(&fatfs, "0:/", 1);
+    if (rc != FR_OK) {
+        xil_printf("Failed to mount SD card: %d\n", rc);
+        return 1;
+    }
+    xil_printf("SD card mounted successfully\n");
+
+    // Add diagnostic after mount
+    FILINFO fno;
+    rc = f_stat("0:/", &fno);
+    xil_printf("SD stat: %d\n", rc);
+    
+    // Check free space
+    DWORD fre_clust, fre_sect, tot_sect;
+    FATFS *fs;
+    rc = f_getfree("0:", &fre_clust, &fs);
+    if (rc == FR_OK) {
+        tot_sect = (fs->n_fatent - 2) * fs->csize;
+        fre_sect = fre_clust * fs->csize;
+        xil_printf("SD card: %lu KB total, %lu KB free\n", tot_sect / 2, fre_sect / 2);
+        xil_printf("File size: %d bytes (%d KB)\n", size, size / 1024);
+    }
+    
+    // Clear file structure before use
+    memset(&file, 0, sizeof(FIL));
+
+    // Now try the actual file
+    memset(&file, 0, sizeof(FIL));
+    rc = f_open(&file, filename, FA_WRITE | FA_CREATE_ALWAYS);
+    if (rc != FR_OK) {
+        xil_printf("Failed to open file: %d\n", rc);
+        
+        // Try with a shorter filename
+        rc = f_open(&file, "0:/out.wav", FA_WRITE | FA_CREATE_ALWAYS);
+        if (rc != FR_OK) {
+            xil_printf("Failed to open shorter filename: %d\n", rc);
+            return 1;
+        } else {
+            xil_printf("Opened with shorter filename: 0:/out.wav\n");
+        }
+    } else {
+        xil_printf("File opened successfully: %s\n", filename);
+    }
+
+    UINT bytes_written;
+    xil_printf("Writing file (%d bytes)...\n", size);
+    
+    // Write in smaller chunks to avoid buffer issues
+    const size_t chunk_size = 8192; // 8KB chunks
+    size_t remaining = size;
+    const uint8_t *ptr = data;
+    
+    while (remaining > 0) {
+        size_t to_write = (remaining > chunk_size) ? chunk_size : remaining;
+        UINT chunk_written;
+        
+        rc = f_write(&file, ptr, to_write, &chunk_written);
+        if (rc != FR_OK) {
+            xil_printf("Write failed at chunk: %d\n", rc);
+            f_close(&file);
+            return 1;
+        }
+        
+        bytes_written += chunk_written;
+        ptr += chunk_written;
+        remaining -= chunk_written;
+        
+        if (chunk_written != to_write) {
+            xil_printf("Partial write: %u/%u\n", chunk_written, to_write);
+            break;
+        }
+    }
+
+    f_close(&file);
+    xil_printf("Wrote %d bytes total\n", bytes_written);
+    return 0;
+}
+
+
+int write_wav_alaw_sd(const WAVFile *wav, const char *output_filename, const uint8_t *out_buffer) {
+    // Calculate total file size
+    size_t header_size = sizeof(RIFFChunk) + sizeof(FormatChunk) + 8; // 8 for data chunk header
+    size_t total_size = header_size + wav->data_chunk.chunk_size;
+    
+    xil_printf("WAV file size will be: %d bytes\n", total_size);
+    
+    // Allocate aligned buffer for entire file
+    uint8_t *file_buffer __attribute__((aligned(32))) = malloc(total_size);
+    if (!file_buffer) {
+        xil_printf("Failed to allocate memory for file buffer\n");
+        return 1;
+    }
+    
+    // Clear the buffer
+    memset(file_buffer, 0, total_size);
+    
+    // Copy all parts to the buffer
+    uint8_t *ptr = file_buffer;
+    
+    // Copy RIFF header
+    memcpy(ptr, &wav->riff_chunk, sizeof(RIFFChunk));
+    ptr += sizeof(RIFFChunk);
+    xil_printf("Copied RIFF header (%d bytes)\n", sizeof(RIFFChunk));
+    
+    // Copy fmt chunk
+    memcpy(ptr, &wav->format_chunk, sizeof(FormatChunk));
+    ptr += sizeof(FormatChunk);
+    xil_printf("Copied fmt chunk (%d bytes)\n", sizeof(FormatChunk));
+    
+    // Copy data chunk header
+    memcpy(ptr, &wav->data_chunk.chunk_id, 4);
+    ptr += 4;
+    memcpy(ptr, &wav->data_chunk.chunk_size, 4);
+    ptr += 4;
+    xil_printf("Copied data chunk header (8 bytes)\n");
+    
+    // Copy audio data
+    memcpy(ptr, out_buffer, wav->data_chunk.chunk_size);
+    xil_printf("Copied audio data (%d bytes)\n", wav->data_chunk.chunk_size);
+    
+    // Write to SD card
+    int result = write_file_to_sd(output_filename, file_buffer, total_size);
+    
+    free(file_buffer);
+    return result;
+}
+
+int main(void) {
+	XTime t0, t1;
+	XTime_GetTime(&t0);
+	// clock_gettime(CLOCK_MONOTONIC, &start);
+
+    printf("encoded_lut:  %p\n", encoded_lut);   // Expect 0x40000000+
+
+    // Parse speech.wav file from SD card
+    WAVFile wav;
+    if (parse_wav_fatfs("0:/speech.wav", &wav) != 0) {
+        xil_printf("Failed to parse speech.wav file\n");
+        return 1;
+    }
+
+    printf("Loaded speech.wav successfully\n");
+    print_wav_info(&wav);
+    
+    int total_samples = wav.data_chunk.chunk_size / sizeof(int16_t);
+    printf("Input: %d samples, %d bytes of 16-bit PCM data\n", total_samples, wav.data_chunk.chunk_size);
+
+    // Convert to A-law
+    uint8_t *out_buffer = alaw(&wav, total_samples);
+    
+    // Now convert header for A-law output (8-bit, half the data size)
+    convert_wav_header(&wav, ALAW_FORMAT, ALAW_SAMPLE_SIZE, total_samples);
+
+    printf("Output: %d samples, %d bytes of A-law data\n", total_samples, wav.data_chunk.chunk_size);
+    xil_printf("Total samples: %d, A-law data size: %d bytes\n", total_samples, wav.data_chunk.chunk_size);
+
+    // Write to SD card
+    if (write_wav_alaw_sd(&wav, "0:/output_alaw.wav", out_buffer) != 0) {
+        xil_printf("SD card write failed\n");
+        free(wav.data_chunk.data);
+        free(out_buffer);
+        return 1;
+    } else {
+        xil_printf("A-law WAV successfully written to SD card\n");
+    }
+
+    // Clean up allocated memory
+    free(wav.data_chunk.data);
+    free(out_buffer);
+
+    // clock_gettime(CLOCK_MONOTONIC, &end);
+    // double elapsed = end.tv_sec - start.tv_sec + (end.tv_nsec - start.tv_nsec) / 1e9;
+    // printf("elapsed time: %f seconds", elapsed);
+    XTime_GetTime(&t1);
+    u64 ticks = t1 - t0;
+
+    u64 us = (ticks * 1000000ULL) / COUNTS_PER_SECOND;
+    u32 ms = (u32)(us / 1000ULL);
+    xil_printf("t0: %u\n", t0);
+    xil_printf("t1: %u\n", t1);
+    xil_printf("elapsed: %u ms (%u us)\n", ms, us);
+
+    return 0;
+}

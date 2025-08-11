@@ -3,21 +3,10 @@
 *.s
 aLawTest
 main
+memory_generator
 
 # ide files
 .idea/
-
-# Vivado junk
-*.jou
-*.log
-*.str
-*.xpr.cache/
-*.runs/
-*.sim/
-*.webtalk/
-*.bit
-*.hwdef
-*.sysdef
 
 # SDK/boot files
 *.bin

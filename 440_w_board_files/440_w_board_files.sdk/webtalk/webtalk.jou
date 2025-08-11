@@ -1,0 +1,12 @@
+#-----------------------------------------------------------
+# Webtalk v2017.4 (64-bit)
+# SW Build 2086221 on Fri Dec 15 20:55:39 MST 2017
+# 
+# Start of session at: Tue Aug  5 22:47:51 2025
+# Process ID: 42668
+# Current directory: G:/440_w_board_files/440_w_board_files.sdk/webtalk
+# Command line: wbtcv.exe -mode batch -source sdk_webtalk.tcl
+# Log file: G:/440_w_board_files/440_w_board_files.sdk/webtalk/webtalk.log
+# Journal file: G:/440_w_board_files/440_w_board_files.sdk/webtalk\webtalk.jou
+#-----------------------------------------------------------
+source sdk_webtalk.tcl
