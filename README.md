@@ -1,8 +1,18 @@
-# Audio Compression/Decompression Project
+# :musical_note: A-Law Compression/Decompression
 
 Implementation of A-Law compression and decompression in C on the Cora Z7-07S platform.
 
-## Resources
+## :open_file_folder: Overview
+
+- `440_w_board_files/`: Vivado files.
+- `inputs/`: Input file examples. `speech.wav` used for profiling
+- `outputs/`: Example output files.
+- `profiles/`: gprof results.
+- `aLaw.c`: A-Law encoding and decoding functions.
+- `main.c`: Main program to parse file and write compressed output.
+- `memory_generator.c`: Program to generate LUT values.
+
+## :book: Resources
 
 - A-Law
   - [Algorithm Details](https://en.wikipedia.org/wiki/A-law_algorithm)

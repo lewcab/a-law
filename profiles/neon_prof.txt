@@ -2,17 +2,18 @@ Flat profile:
 
 Each sample counts as 0.01 seconds.
   %   cumulative   self              self     total           
- time   seconds   seconds    calls  ns/call  ns/call  name    
- 56.05      0.14     0.14   518400   270.29   463.35  a_law_encode
- 24.02      0.20     0.06   306344   196.02   196.02  get_chord
- 12.01      0.23     0.03   518400    57.92    57.92  get_sign
-  4.00      0.24     0.01   306344    32.67    32.67  get_step
-  4.00      0.25     0.01                             main
-  0.00      0.25     0.00   518400     0.00     0.00  get_magnitude
-  0.00      0.25     0.00        2     0.00     0.00  print_wav_info
-  0.00      0.25     0.00        1     0.00     0.00  convert_wav_header
-  0.00      0.25     0.00        1     0.00     0.00  parse_wav
-  0.00      0.25     0.00        1     0.00     0.00  write_wav
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 40.03      0.04     0.04    64800     0.00     0.00  get_step_neon
+ 30.02      0.07     0.03        1    30.02   100.08  a_law_encode_neon
+ 20.02      0.09     0.02    64800     0.00     0.00  assemble_codeword_neon
+ 10.01      0.10     0.01    64800     0.00     0.00  get_magnitude_neon
+  0.00      0.10     0.00    64800     0.00     0.00  get_chord_neon
+  0.00      0.10     0.00    64800     0.00     0.00  get_sign_neon
+  0.00      0.10     0.00    64800     0.00     0.00  get_small_codewords
+  0.00      0.10     0.00        2     0.00     0.00  print_wav_info
+  0.00      0.10     0.00        1     0.00     0.00  convert_wav_header
+  0.00      0.10     0.00        1     0.00     0.00  parse_wav
+  0.00      0.10     0.00        1     0.00     0.00  write_wav_alaw
 
  %         the percentage of the total running time of the
 time       program used by this function.
@@ -50,47 +51,55 @@ notice and this notice are preserved.
 		     Call graph (explanation follows)
 
 
-granularity: each sample hit covers 2 byte(s) for 4.00% of 0.25 seconds
+granularity: each sample hit covers 2 byte(s) for 9.99% of 0.10 seconds
 
 index % time    self  children    called     name
+                0.03    0.07       1/1           main [2]
+[1]    100.0    0.03    0.07       1         a_law_encode_neon [1]
+                0.04    0.00   64800/64800       get_step_neon [3]
+                0.02    0.00   64800/64800       assemble_codeword_neon [4]
+                0.01    0.00   64800/64800       get_magnitude_neon [5]
+                0.00    0.00   64800/64800       get_sign_neon [7]
+                0.00    0.00   64800/64800       get_chord_neon [6]
+                0.00    0.00   64800/64800       get_small_codewords [8]
+-----------------------------------------------
                                                  <spontaneous>
-[1]    100.0    0.01    0.24                 main [1]
-                0.14    0.10  518400/518400      a_law_encode [2]
-                0.00    0.00       2/2           print_wav_info [7]
-                0.00    0.00       1/1           parse_wav [9]
-                0.00    0.00       1/1           convert_wav_header [8]
-                0.00    0.00       1/1           write_wav [10]
+[2]    100.0    0.00    0.10                 main [2]
+                0.03    0.07       1/1           a_law_encode_neon [1]
+                0.00    0.00       2/2           print_wav_info [9]
+                0.00    0.00       1/1           parse_wav [11]
+                0.00    0.00       1/1           convert_wav_header [10]
+                0.00    0.00       1/1           write_wav_alaw [12]
 -----------------------------------------------
-                0.14    0.10  518400/518400      main [1]
-[2]     96.0    0.14    0.10  518400         a_law_encode [2]
-                0.06    0.00  306344/306344      get_chord [3]
-                0.03    0.00  518400/518400      get_sign [4]
-                0.01    0.00  306344/306344      get_step [5]
-                0.00    0.00  518400/518400      get_magnitude [6]
+                0.04    0.00   64800/64800       a_law_encode_neon [1]
+[3]     40.0    0.04    0.00   64800         get_step_neon [3]
 -----------------------------------------------
-                0.06    0.00  306344/306344      a_law_encode [2]
-[3]     24.0    0.06    0.00  306344         get_chord [3]
+                0.02    0.00   64800/64800       a_law_encode_neon [1]
+[4]     20.0    0.02    0.00   64800         assemble_codeword_neon [4]
 -----------------------------------------------
-                0.03    0.00  518400/518400      a_law_encode [2]
-[4]     12.0    0.03    0.00  518400         get_sign [4]
+                0.01    0.00   64800/64800       a_law_encode_neon [1]
+[5]     10.0    0.01    0.00   64800         get_magnitude_neon [5]
 -----------------------------------------------
-                0.01    0.00  306344/306344      a_law_encode [2]
-[5]      4.0    0.01    0.00  306344         get_step [5]
+                0.00    0.00   64800/64800       a_law_encode_neon [1]
+[6]      0.0    0.00    0.00   64800         get_chord_neon [6]
 -----------------------------------------------
-                0.00    0.00  518400/518400      a_law_encode [2]
-[6]      0.0    0.00    0.00  518400         get_magnitude [6]
+                0.00    0.00   64800/64800       a_law_encode_neon [1]
+[7]      0.0    0.00    0.00   64800         get_sign_neon [7]
 -----------------------------------------------
-                0.00    0.00       2/2           main [1]
-[7]      0.0    0.00    0.00       2         print_wav_info [7]
+                0.00    0.00   64800/64800       a_law_encode_neon [1]
+[8]      0.0    0.00    0.00   64800         get_small_codewords [8]
 -----------------------------------------------
-                0.00    0.00       1/1           main [1]
-[8]      0.0    0.00    0.00       1         convert_wav_header [8]
+                0.00    0.00       2/2           main [2]
+[9]      0.0    0.00    0.00       2         print_wav_info [9]
 -----------------------------------------------
-                0.00    0.00       1/1           main [1]
-[9]      0.0    0.00    0.00       1         parse_wav [9]
+                0.00    0.00       1/1           main [2]
+[10]     0.0    0.00    0.00       1         convert_wav_header [10]
 -----------------------------------------------
-                0.00    0.00       1/1           main [1]
-[10]     0.0    0.00    0.00       1         write_wav [10]
+                0.00    0.00       1/1           main [2]
+[11]     0.0    0.00    0.00       1         parse_wav [11]
+-----------------------------------------------
+                0.00    0.00       1/1           main [2]
+[12]     0.0    0.00    0.00       1         write_wav_alaw [12]
 -----------------------------------------------
 
  This table describes the call tree of the program, and was sorted by
@@ -183,7 +192,7 @@ notice and this notice are preserved.
 
 Index by function name
 
-   [2] a_law_encode            [4] get_sign                [7] print_wav_info
-   [8] convert_wav_header      [5] get_step               [10] write_wav
-   [3] get_chord               [1] main
-   [6] get_magnitude           [9] parse_wav
+   [1] a_law_encode_neon       [5] get_magnitude_neon     [11] parse_wav
+   [4] assemble_codeword_neon  [7] get_sign_neon           [9] print_wav_info
+  [10] convert_wav_header      [8] get_small_codewords    [12] write_wav_alaw
+   [6] get_chord_neon          [3] get_step_neon
