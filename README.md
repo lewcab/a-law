@@ -2,6 +2,8 @@
 
 Implementation of A-Law compression and decompression in C on the Cora Z7-07S platform.
 
+![Design Diagram](https://github.com/lewcab/a-law/blob/main/design_diagrams/compression_activity_diagram.png?raw=true)
+
 ## :open_file_folder: Overview
 
 - `440_w_board_files/`: Vivado files.
